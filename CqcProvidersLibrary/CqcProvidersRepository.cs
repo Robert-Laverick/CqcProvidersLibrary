@@ -23,13 +23,18 @@ namespace CqcProvidersLibrary
             _datastore = datastore;
         }
 
-        public async IAsyncEnumerable<ProvidersResponseLineDto> GetAllCqcProviders()
+        /// <summary>
+        /// Get all CQC providers from the API. The API is paginated, itterating this will do multiple API reqests to ge all providers.
+        /// </summary>
+        /// <param name="request">Optional request parameters for filtering, pagination parameters are ignored as this request gets all providers</param>
+        /// <returns></returns>
+        public async IAsyncEnumerable<ProvidersResponseLineDto> GetAllCqcProviders(ProvidersRequest? request = null)
         {
-            var request = new ProvidersRequest()
-            {
-                PerPage = MaxPerPage,
-                Page = 1
-            };
+            if (request is null)
+                request = new ProvidersRequest();
+
+            request.PerPage = MaxPerPage;
+            request.Page = 1;
 
             // Do a GetReqest to the CQC API to get a list of providers
             var response = await _endpoint.GetCqcProviders(request);
@@ -56,9 +61,17 @@ namespace CqcProvidersLibrary
                 }
             }
         }
+        /// <summary>
+        /// Get a single page of CQC providers from the API.
+        /// </summary>
+        /// <param name="request">Optional parameters for filtering and pagination</param>
+        /// <returns></returns>
 
-        public async Task<IEnumerable<ProvidersResponseLineDto>?> GetCqcProviders(ProvidersRequest request)
+        public async Task<IEnumerable<ProvidersResponseLineDto>?> GetCqcProviders(ProvidersRequest? request = null)
         {
+            if (request is null)
+                request = new ProvidersRequest();
+
             // Do a GetReqest to the CQC API to get a list of providers
             var response = await _endpoint.GetCqcProviders(request);
 
@@ -68,9 +81,15 @@ namespace CqcProvidersLibrary
             return response.Providers;
         }
 
-        public async Task<CqcProvider?> GetCqcProviderById(string id)
+        /// <summary>
+        /// Retrieve a CQC provider by its ID. 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="forceRefresh">If true, forces a refresh from the API even if a cached version is available.</param>
+        /// <returns></returns>
+        public async Task<CqcProvider?> GetCqcProviderById(string id, bool forceRefresh = false)
         {
-            if (_datastore is not null)
+            if (_datastore is not null && !forceRefresh)
             {
                 //try to get the provider from the datastore first
                 var providerFromDatastore = await _datastore.GetProviderById(id);
