@@ -1,4 +1,5 @@
-﻿using CqcProvidersLibrary.Repository;
+﻿using CqcProvidersLibrary.API;
+using CqcProvidersLibrary.Repository;
 using Microsoft.Extensions.Configuration;
 
 namespace CqcProvidersLibrary.Test
@@ -6,8 +7,11 @@ namespace CqcProvidersLibrary.Test
     public class ProvidersRepositoryTests
     {
         private readonly IConfiguration _configuration;
-        private string _subscriptionKey => _configuration["CqcSubscriptionKey"] 
+        private string _subscriptionKey => _configuration["CqcSubscriptionKey"]
             ?? throw new InvalidOperationException("CqcSubscriptionKey is not configured in user secrets.");
+
+        private string _connectionString => _configuration["ConnectionString"]
+            ?? "Server=localhost;Database=CqcProviders;Trusted_Connection=True;";
         public ProvidersRepositoryTests()
         {
             _configuration = new ConfigurationBuilder()
@@ -16,9 +20,9 @@ namespace CqcProvidersLibrary.Test
         }
 
         [Fact]
-        public async Task BasicCqcProviderTests()
+        public async Task BasicCqcEndpointTests()
         {
-            var repository = new CqcProvidersRepository(_subscriptionKey);
+            var repository = new CqcProvidersEndpoint(_subscriptionKey);
             var providers = await repository.GetCqcProviders();
             Assert.NotNull(providers);
 
@@ -29,6 +33,128 @@ namespace CqcProvidersLibrary.Test
             var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId);
             Assert.NotNull(providerById);
 
+            var lastProvider = providers.LastOrDefault();
+            Assert.NotNull(lastProvider);
+            Assert.False(string.IsNullOrEmpty(lastProvider.ProviderId));
+
+            var lastProviderById = await repository.GetCqcProviderById(lastProvider.ProviderId);
+            Assert.NotNull(lastProviderById);
+        }
+
+        [Fact]
+        public async Task EndToEndTest()
+        {
+            var endpoint = new CqcProvidersEndpoint(_subscriptionKey);
+            var datastore = new CqcProvidersDatastore(_connectionString);
+            var repository = new CqcProvidersRepository(endpoint, datastore);
+            var providers = await repository.GetCqcProviders();
+            Assert.NotNull(providers);
+            var firstProvider = providers.FirstOrDefault();
+            Assert.NotNull(firstProvider);
+            Assert.False(string.IsNullOrEmpty(firstProvider.ProviderId));
+            var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId);
+            Assert.NotNull(providerById);
+        }
+
+        [Fact]
+        public async Task EndToEndTestWithFakeEndpointAndDatastore()
+        {
+            var fakeEndpoint = new FakeEndpoint();
+            var fakeDatastore = new FakeDatastore();
+            var repository = new CqcProvidersRepository(fakeEndpoint, fakeDatastore);
+
+            // Add a provider to the fake endpoint
+            var providerDto = new ProviderDto
+            {
+                ProviderId = "123",
+                Name = "Test Provider"
+            };
+            fakeEndpoint.Providers[providerDto.ProviderId] = providerDto;
+
+            // Test GetCqcProviders
+            var providers = await repository.GetCqcProviders();
+            Assert.NotNull(providers);
+            Assert.Single(providers);
+            Assert.Equal(providerDto.ProviderId, providers.First().ProviderId);
+
+            // Test GetCqcProviderById
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            Assert.NotNull(providerById);
+            Assert.Equal(providerDto.ProviderId, providerById.Id);
+
+            // Test caching in the fake datastore
+            var cachedProvider = await fakeDatastore.GetProviderById(providerDto.ProviderId);
+            Assert.NotNull(cachedProvider);
+            Assert.Equal(providerDto.ProviderId, cachedProvider.Id);
+        }
+
+        [Fact]
+        public async Task TestCacheRetrieval()
+        {
+            var fakeEndpoint = new FakeEndpoint();
+            var fakeDatastore = new FakeDatastore();
+            var repository = new CqcProvidersRepository(fakeEndpoint, fakeDatastore);
+
+            // Add a provider to the fake endpoint
+            var providerDto = new ProviderDto
+            {
+                ProviderId = "123",
+                Name = "Test Provider"
+            };
+            
+            var cachedProvider = new CqcProvider(providerDto)
+            {
+                CachedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)) // Set cached date to 10 days ago
+            };
+            fakeDatastore._providers.Add(cachedProvider.Id, cachedProvider);
+
+            // Test GetCqcProviderById
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            Assert.NotNull(providerById);
+            Assert.Equal(providerDto.ProviderId, providerById.Id);
+            Assert.Equal(providerDto.Name, providerById.Name);
+
+            // Check fake datastore was not updated
+            var cachedProviderAfter = await fakeDatastore.GetProviderById(providerDto.ProviderId);
+            Assert.NotNull(cachedProviderAfter);
+            Assert.Equal(providerDto.ProviderId, cachedProviderAfter.Id);
+            Assert.Equal(providerDto.Name, cachedProviderAfter.Name);
+            Assert.Equal(cachedProvider.CachedDate, cachedProviderAfter.CachedDate); // Cached date should remain the same
+        }
+
+        [Fact]
+        public async Task TestCacheExpiry()
+        {
+            var fakeEndpoint = new FakeEndpoint();
+            var fakeDatastore = new FakeDatastore();
+            var repository = new CqcProvidersRepository(fakeEndpoint, fakeDatastore);
+
+            // Add a provider to the fake endpoint
+            var providerDto = new ProviderDto
+            {
+                ProviderId = "123",
+                Name = "Test Provider New"
+            };
+            fakeEndpoint.Providers[providerDto.ProviderId] = providerDto;
+
+            var oldProvider = new CqcProvider(providerDto)
+            {
+                Name = "Test Provider Old",
+                CachedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-2)) // Set cached date to 2 months ago
+            };
+            fakeDatastore._providers.Add(oldProvider.Id, oldProvider);
+
+            // Test GetCqcProviderById
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            Assert.NotNull(providerById);
+            Assert.Equal(providerDto.ProviderId, providerById.Id);
+            Assert.Equal(providerDto.Name, providerById.Name);
+
+            // Check fake datastore was updated with the new provider data
+            var cachedProvider = await fakeDatastore.GetProviderById(providerDto.ProviderId);
+            Assert.NotNull(cachedProvider);
+            Assert.Equal(providerDto.ProviderId, cachedProvider.Id);
+            Assert.Equal(providerDto.Name, cachedProvider.Name);
         }
     }
 }

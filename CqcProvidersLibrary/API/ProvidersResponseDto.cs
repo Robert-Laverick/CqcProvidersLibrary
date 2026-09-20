@@ -14,7 +14,7 @@ namespace CqcProvidersLibrary.API
         public string LastPageUri { get; set; }
         public string NextPageUri { get; set; }
         public string PreviousPageUri { get; set; }
-        public IEnumerable<CqcProvidersResponseLineDto> Providers { get; set; }
+        public IEnumerable<ProvidersResponseLineDto> Providers { get; set; }
         public string Uri { get; set; }
 
     }
