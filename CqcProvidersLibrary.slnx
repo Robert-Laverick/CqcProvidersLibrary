@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CqcProvidersLibrary.Test/CqcProvidersLibrary.Test.csproj" />
+  <Project Path="CqcProvidersLibrary/CqcProvidersLibrary.csproj" />
+</Solution>
