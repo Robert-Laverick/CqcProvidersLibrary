@@ -6,7 +6,7 @@ namespace CqcProvidersLibrary.API
 {
     public interface ICqcProvidersEndpoint
     {
-        Task<IEnumerable<ProvidersResponseLineDto>> GetCqcProviders();
+        Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request);
         Task<ProviderDto?> GetCqcProviderById(string id);
     }
 }

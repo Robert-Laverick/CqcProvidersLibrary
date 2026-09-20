@@ -23,7 +23,14 @@ namespace CqcProvidersLibrary.Test
         public async Task BasicCqcEndpointTests()
         {
             var repository = new CqcProvidersEndpoint(_subscriptionKey);
-            var providers = await repository.GetCqcProviders();
+            var parameters = new ProvidersRequest
+            {
+                PerPage = 10,
+                Page = 1
+            };
+            var result = await repository.GetCqcProviders(parameters);
+            Assert.NotNull(result);
+            var providers = result?.Providers;
             Assert.NotNull(providers);
 
             var firstProvider = providers.FirstOrDefault();
@@ -47,7 +54,7 @@ namespace CqcProvidersLibrary.Test
             var endpoint = new CqcProvidersEndpoint(_subscriptionKey);
             var datastore = new CqcProvidersDatastore(_connectionString);
             var repository = new CqcProvidersRepository(endpoint, datastore);
-            var providers = await repository.GetCqcProviders();
+            var providers = await repository.GetAllCqcProviders().Take(20).ToListAsync();
             Assert.NotNull(providers);
             var firstProvider = providers.FirstOrDefault();
             Assert.NotNull(firstProvider);
@@ -69,10 +76,10 @@ namespace CqcProvidersLibrary.Test
                 ProviderId = "123",
                 Name = "Test Provider"
             };
-            fakeEndpoint.Providers[providerDto.ProviderId] = providerDto;
+            fakeEndpoint.Providers.Add(providerDto);
 
             // Test GetCqcProviders
-            var providers = await repository.GetCqcProviders();
+            var providers = await repository.GetCqcProviders(new ProvidersRequest());
             Assert.NotNull(providers);
             Assert.Single(providers);
             Assert.Equal(providerDto.ProviderId, providers.First().ProviderId);
@@ -135,7 +142,7 @@ namespace CqcProvidersLibrary.Test
                 ProviderId = "123",
                 Name = "Test Provider New"
             };
-            fakeEndpoint.Providers[providerDto.ProviderId] = providerDto;
+            fakeEndpoint.Providers.Add(providerDto);
 
             var oldProvider = new CqcProvider(providerDto)
             {

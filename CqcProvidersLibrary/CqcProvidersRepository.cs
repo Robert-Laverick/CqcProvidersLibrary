@@ -7,6 +7,7 @@ namespace CqcProvidersLibrary
     public class CqcProvidersRepository
     {
         private static DateOnly MaxCacheAge => DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-1));
+        private const int MaxPerPage = 100;
         private readonly ICqcProvidersEndpoint _endpoint;
         private readonly ICqcProvidersDatastore _datastore;
 
@@ -15,12 +16,49 @@ namespace CqcProvidersLibrary
             _datastore = datastore;
         }
 
-        public async Task<IEnumerable<ProvidersResponseLineDto>> GetCqcProviders()
+        public async IAsyncEnumerable<ProvidersResponseLineDto> GetAllCqcProviders()
+        {
+            var request = new ProvidersRequest()
+            {
+                PerPage = MaxPerPage,
+                Page = 1
+            };
+
+            // Do a GetReqest to the CQC API to get a list of providers
+            var response = await _endpoint.GetCqcProviders(request);
+
+            if (response is null)
+                yield break;
+            foreach (var provider in response.Providers)
+            {
+                yield return provider;
+            }
+
+            if(response.TotalPages > 1)
+            {
+                for (int page = 2; page <= response.TotalPages; page++)
+                {
+                    request.Page = page;
+                    response = await _endpoint.GetCqcProviders(request);
+                    if (response is null)
+                        yield break;
+                    foreach (var provider in response.Providers)
+                    {
+                        yield return provider;
+                    }
+                }
+            }
+        }
+
+        public async Task<IEnumerable<ProvidersResponseLineDto>?> GetCqcProviders(ProvidersRequest request)
         {
             // Do a GetReqest to the CQC API to get a list of providers
-            var response = await _endpoint.GetCqcProviders();
+            var response = await _endpoint.GetCqcProviders(request);
 
-            return response;
+            if (response is null)
+                return null;
+
+            return response.Providers;
         }
 
         public async Task<CqcProvider?> GetCqcProviderById(string id)

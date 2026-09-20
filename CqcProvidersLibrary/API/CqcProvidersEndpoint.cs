@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http.Json;
 using System.Text;
+using System.Web;
 
 namespace CqcProvidersLibrary.API
 {
@@ -22,13 +23,24 @@ namespace CqcProvidersLibrary.API
             _httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
         }
 
-        public async Task<IEnumerable<ProvidersResponseLineDto>> GetCqcProviders()
+        public async Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request)
         {
             // Do a GetReqest to the CQC API to get a list of providers
-            var response = await _httpClient.GetFromJsonAsync<ProvidersResponseDto>(CqcProvidersApiUrl);
 
+            var builder = new UriBuilder(CqcBaseUrl + CqcProvidersApiUrl);
 
-            return response.Providers;
+            var query = HttpUtility.ParseQueryString(builder.Query);
+            foreach (var param in request.GetParameters())
+            {
+                query[param.Key] = param.Value;
+            }
+
+            builder.Query = query.ToString();
+            var url = builder.ToString();
+
+            var response = await _httpClient.GetFromJsonAsync<ProvidersResponseDto>(url);
+
+            return response;
         }
 
         public async Task<ProviderDto?> GetCqcProviderById(string id)
