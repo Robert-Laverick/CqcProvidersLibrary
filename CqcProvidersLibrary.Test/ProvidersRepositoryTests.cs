@@ -9,9 +9,32 @@ namespace CqcProvidersLibrary.Test
         private readonly IConfiguration _configuration;
         private string _subscriptionKey => _configuration["CqcSubscriptionKey"]
             ?? throw new InvalidOperationException("CqcSubscriptionKey is not configured in user secrets.");
+        public static bool _subscriptionKeyMissing
+        {
+            get
+            {
+                var configuration = new ConfigurationBuilder()
+                    .AddUserSecrets<ProvidersRepositoryTests>()
+                    .Build();
+                var subscriptionKey = configuration["CqcSubscriptionKey"];
+                return string.IsNullOrWhiteSpace(subscriptionKey);
+            }
+        }
+        private string? _connectionString => _configuration["ConnectionString"];
+        public static bool _databaseConnectionStringMissing
+        {
+            get
+            {
+                var configuration = new ConfigurationBuilder()
+                    .AddUserSecrets<ProvidersRepositoryTests>()
+                    .Build();
+                var subscriptionKey = configuration["ConnectionString"];
+                return string.IsNullOrWhiteSpace(subscriptionKey);
+            }
+        }
 
-        private string _connectionString => _configuration["ConnectionString"]
-            ?? "Server=localhost;Database=CqcProviders;Trusted_Connection=True;";
+        public static bool _skipTests => _subscriptionKeyMissing || _databaseConnectionStringMissing;
+
         public ProvidersRepositoryTests()
         {
             _configuration = new ConfigurationBuilder()
@@ -19,7 +42,7 @@ namespace CqcProvidersLibrary.Test
                 .Build();
         }
 
-        [Fact]
+        [Fact(Skip = "No API Subscription Key Set", SkipWhen = nameof(_subscriptionKeyMissing))]
         public async Task BasicCqcEndpointTests()
         {
             var repository = new CqcProvidersEndpoint(_subscriptionKey);
@@ -28,7 +51,7 @@ namespace CqcProvidersLibrary.Test
                 PerPage = 10,
                 Page = 1
             };
-            var result = await repository.GetCqcProviders(parameters);
+            var result = await repository.GetCqcProviders(parameters, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(result);
             var providers = result?.Providers;
             Assert.NotNull(providers);
@@ -37,29 +60,27 @@ namespace CqcProvidersLibrary.Test
             Assert.NotNull(firstProvider);
             Assert.False(string.IsNullOrEmpty(firstProvider.ProviderId));
 
-            var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId);
+            var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providerById);
 
             var lastProvider = providers.LastOrDefault();
             Assert.NotNull(lastProvider);
             Assert.False(string.IsNullOrEmpty(lastProvider.ProviderId));
 
-            var lastProviderById = await repository.GetCqcProviderById(lastProvider.ProviderId);
+            var lastProviderById = await repository.GetCqcProviderById(lastProvider.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(lastProviderById);
         }
 
-        [Fact]
+        [Fact(Skip = "No API Subscription Key Set or Database Connection string missing", SkipWhen = nameof(_skipTests))]
         public async Task EndToEndTest()
         {
-            var endpoint = new CqcProvidersEndpoint(_subscriptionKey);
-            var datastore = new CqcProvidersDatastore(_connectionString);
-            var repository = new CqcProvidersRepository(endpoint, datastore);
-            var providers = await repository.GetAllCqcProviders().Take(20).ToListAsync();
+            var repository = new CqcProvidersRepository(_subscriptionKey, _connectionString);
+            var providers = await repository.GetAllCqcProviders(cancellationToken: TestContext.Current.CancellationToken).Take(20).ToListAsync(cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providers);
             var firstProvider = providers.FirstOrDefault();
             Assert.NotNull(firstProvider);
             Assert.False(string.IsNullOrEmpty(firstProvider.ProviderId));
-            var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId);
+            var providerById = await repository.GetCqcProviderById(firstProvider.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providerById);
         }
 
@@ -79,13 +100,13 @@ namespace CqcProvidersLibrary.Test
             fakeEndpoint.Providers.Add(providerDto);
 
             // Test GetCqcProviders
-            var providers = await repository.GetCqcProviders(new ProvidersRequest());
+            var providers = await repository.GetCqcProviders(new ProvidersRequest(), cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providers);
             Assert.Single(providers);
             Assert.Equal(providerDto.ProviderId, providers.First().ProviderId);
 
             // Test GetCqcProviderById
-            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providerById);
             Assert.Equal(providerDto.ProviderId, providerById.Id);
 
@@ -116,7 +137,7 @@ namespace CqcProvidersLibrary.Test
             fakeDatastore._providers.Add(cachedProvider.Id, cachedProvider);
 
             // Test GetCqcProviderById
-            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providerById);
             Assert.Equal(providerDto.ProviderId, providerById.Id);
             Assert.Equal(providerDto.Name, providerById.Name);
@@ -152,7 +173,7 @@ namespace CqcProvidersLibrary.Test
             fakeDatastore._providers.Add(oldProvider.Id, oldProvider);
 
             // Test GetCqcProviderById
-            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId);
+            var providerById = await repository.GetCqcProviderById(providerDto.ProviderId, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(providerById);
             Assert.Equal(providerDto.ProviderId, providerById.Id);
             Assert.Equal(providerDto.Name, providerById.Name);

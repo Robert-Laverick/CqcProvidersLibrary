@@ -6,7 +6,7 @@ namespace CqcProvidersLibrary.API
 {
     public interface ICqcProvidersEndpoint
     {
-        Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request);
-        Task<ProviderDto?> GetCqcProviderById(string id);
+        Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request, CancellationToken cancellationToken = default);
+        Task<ProviderDto?> GetCqcProviderById(string id, CancellationToken cancellationToken = default);
     }
 }

@@ -23,7 +23,7 @@ namespace CqcProvidersLibrary.API
             _httpClient.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", subscriptionKey);
         }
 
-        public async Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request)
+        public async Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request, CancellationToken cancellationToken = default)
         {
             // Do a GetReqest to the CQC API to get a list of providers
 
@@ -38,17 +38,17 @@ namespace CqcProvidersLibrary.API
             builder.Query = query.ToString();
             var url = builder.ToString();
 
-            var response = await _httpClient.GetFromJsonAsync<ProvidersResponseDto>(url);
+            var response = await _httpClient.GetFromJsonAsync<ProvidersResponseDto>(url, cancellationToken);
 
             return response;
         }
 
-        public async Task<ProviderDto?> GetCqcProviderById(string id)
+        public async Task<ProviderDto?> GetCqcProviderById(string id, CancellationToken cancellationToken = default)
         {
             // Do a GetRequest to the CQC API to get a provider by ID
             try
             {
-                var providerDto = await _httpClient.GetFromJsonAsync<ProviderDto>(string.Format(CqcProviderByIdApiUrlTemplate, id));
+                var providerDto = await _httpClient.GetFromJsonAsync<ProviderDto>(string.Format(CqcProviderByIdApiUrlTemplate, id), cancellationToken);
 
                 return providerDto;
             }

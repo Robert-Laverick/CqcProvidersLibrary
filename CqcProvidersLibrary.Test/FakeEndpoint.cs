@@ -9,13 +9,13 @@ namespace CqcProvidersLibrary.Test
     {
         public List<ProviderDto> Providers { get; set; } = new();
 
-        public Task<ProviderDto?> GetCqcProviderById(string id)
+        public Task<ProviderDto?> GetCqcProviderById(string id, CancellationToken cancellationToken = default)
         {
             var provider = Providers.FirstOrDefault(p => p.ProviderId == id);
             return Task.FromResult(provider);
         }
 
-        public Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request)
+        public Task<ProvidersResponseDto?> GetCqcProviders(ProvidersRequest request, CancellationToken cancellationToken = default)
         {
             return Task.FromResult<ProvidersResponseDto?>(new ProvidersResponseDto()
             {
