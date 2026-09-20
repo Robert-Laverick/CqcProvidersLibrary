@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="DB Schema.sql" />
+    <File Path="README.md" />
+  </Folder>
   <Project Path="CqcProvidersLibrary.Test/CqcProvidersLibrary.Test.csproj" />
   <Project Path="CqcProvidersLibrary/CqcProvidersLibrary.csproj" />
 </Solution>
